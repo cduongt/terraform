@@ -3,6 +3,7 @@ package occi
 import (
 	"os/exec"
 	"strings"
+	"bytes"
 
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -64,14 +65,31 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 	vm_name := d.Get("name").(string)
 
 	cmd_name := "occi"
-	cmd_args := []string{"-e", endpoint, "--auth", "x509", "--user-cred", proxy_file, "--voms", "-a", "create", "-r", "compute", "--mixin", image_template, "--mixin", resource_template, "--attribute", vm_name}
+	cmd_args_create := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "compute", "-M", image_template, "-M", resource_template, "-t", vm_name}
 
-	if cmdOut, err = exec.Command(cmd_name, cmd_args...).Output(); err != nil {
+	if cmdOut, err = exec.Command(cmd_name, cmd_args_create...).Output(); err != nil {
 		return err
 	}
 
 	compute_id_address := strings.Split(string(cmdOut), "/")
-	d.Set("vm_id", compute_id_address[len(compute_id_address)-1])
+	compute_id := strings.Trim(compute_id_address[len(compute_id_address)-1], "\n")
+	compute := strings.Join([]string{"/compute/", compute_id}, "")
+	d.Set("vm_id", compute)
+	d.SetId(compute)
+	cmd_args_describe := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "describe", "-r", compute}
+
+	if cmdOut, err = exec.Command(cmd_name, cmd_args_describe...).Output(); err != nil {
+		return err
+	}
+
+	byte_array := bytes.Fields(cmdOut)
+	for i, line := range byte_array {
+		if bytes.Contains(line, []byte("occi.networkinterface.address")) {
+			ip_line := string(byte_array[i+2][:])
+			d.Set("ip_address", ip_line)
+			break
+		}
+	}
 
 	return nil
 }
@@ -89,10 +107,9 @@ func resourceVirtualMachineDelete(d *schema.ResourceData, meta interface{}) erro
 	endpoint := d.Get("endpoint").(string)
 	proxy_file := d.Get("x509").(string)
 	vm_id := d.Get("vm_id").(string)
-	compute := []string{"/compute/", vm_id}
 
 	cmd_name := "occi"
-	cmd_args := []string{"-e", endpoint, "--auth", "x509", "--user-cred", proxy_file, "--voms", "-a", "delete", "-r", strings.Join(compute, "")}
+	cmd_args := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "delete", "-r", vm_id}
 	if _, err = exec.Command(cmd_name, cmd_args...).Output(); err != nil {
 		return err
 	}
