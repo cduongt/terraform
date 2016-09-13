@@ -4,12 +4,14 @@ resource "occi_virtual_machine" "vm" {
 	endpoint = "https://carach5.ics.muni.cz:11443"
 	name = "occi.core.title=test_vm_small"
 	x509 = "/tmp/x509up_u1000"
+	public_key = "/home/cduongt/fedcloud.pub"
+	count = 3
 }
 
 output "virtual_machine_id" {
-	value = "${occi_virtual_machine.vm.vm_id}"
+	value = "${join(",",occi_virtual_machine.vm.*.vm_id)}"
 }
 
 output "virtual_machine_ip" {
-	value = "${occi_virtual_machine.vm.ip_address}"
+	value = "${join(",",occi_virtual_machine.vm.*.ip_address)}"
 }
