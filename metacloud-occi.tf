@@ -4,7 +4,7 @@ resource "occi_virtual_machine" "vm" {
 	endpoint = "https://carach5.ics.muni.cz:11443"
 	name = "occi.core.title=test_vm_small"
 	x509 = "/tmp/x509up_u1000"
-	public_key = "/home/cduongt/fedcloud.pub"
+	context = "/home/cduongt/context"
 	count = 3
 }
 

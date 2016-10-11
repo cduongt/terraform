@@ -40,7 +40,7 @@ func resourceVirtualMachine() *schema.Resource {
 				Required:    true,
 				ForceNew:    true,
 			},
-			"public_key": &schema.Schema{
+			"context": &schema.Schema{
 				Type:		 schema.TypeString,
 				Required:	 true,
 				ForceNew:	 true,
@@ -68,10 +68,10 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 	resource_template := d.Get("resource_template").(string)
 	proxy_file := d.Get("x509").(string)
 	vm_name := d.Get("name").(string)
-	public_key := d.Get("public_key").(string)
+	context_file := d.Get("context").(string)
 
 	cmd_name := "occi"
-	cmd_args_create := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "compute", "-M", image_template, "-M", resource_template, "-t", vm_name, "-T", strings.Join([]string{"public_key=file:///", public_key}, "") }
+	cmd_args_create := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "compute", "-M", image_template, "-M", resource_template, "-t", vm_name, "-T", strings.Join([]string{"user_data=file:///", context_file}, "") }
 
 	if cmdOut, err = exec.Command(cmd_name, cmd_args_create...).Output(); err != nil {
 		return err
