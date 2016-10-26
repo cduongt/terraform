@@ -1,9 +1,9 @@
 package occi
 
 import (
+	"bytes"
 	"os/exec"
 	"strings"
-	"bytes"
 
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -16,42 +16,42 @@ func resourceVirtualMachine() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"endpoint": &schema.Schema{
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
 			},
 			"x509": &schema.Schema{
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
 			},
 			"image_template": &schema.Schema{
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
 			},
 			"resource_template": &schema.Schema{
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
 			},
 			"name": &schema.Schema{
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
 			},
 			"context": &schema.Schema{
-				Type:		 schema.TypeString,
-				Required:	 true,
-				ForceNew:	 true,
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
 			},
 			"vm_id": &schema.Schema{
-				Type:        schema.TypeString,
-				Computed:    true,
+				Type:     schema.TypeString,
+				Computed: true,
 			},
 			"ip_address": &schema.Schema{
-				Type:        schema.TypeString,
-				Computed:    true,
+				Type:     schema.TypeString,
+				Computed: true,
 			},
 		},
 	}
@@ -71,7 +71,7 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 	context_file := d.Get("context").(string)
 
 	cmd_name := "occi"
-	cmd_args_create := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "compute", "-M", image_template, "-M", resource_template, "-t", vm_name, "-T", strings.Join([]string{"user_data=file:///", context_file}, "") }
+	cmd_args_create := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "compute", "-M", image_template, "-M", resource_template, "-t", vm_name, "-T", strings.Join([]string{"user_data=file:///", context_file}, "")}
 
 	if cmdOut, err = exec.Command(cmd_name, cmd_args_create...).Output(); err != nil {
 		return err
@@ -104,11 +104,10 @@ func resourceVirtualMachineRead(d *schema.ResourceData, meta interface{}) error 
 	return nil
 }
 
-
 func resourceVirtualMachineDelete(d *schema.ResourceData, meta interface{}) error {
 	var (
-		_ []byte
-		err    error
+		_   []byte
+		err error
 	)
 	endpoint := d.Get("endpoint").(string)
 	proxy_file := d.Get("x509").(string)
