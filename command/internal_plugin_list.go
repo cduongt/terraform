@@ -34,6 +34,7 @@ import (
 	mailgunprovider "github.com/hashicorp/terraform/builtin/providers/mailgun"
 	mysqlprovider "github.com/hashicorp/terraform/builtin/providers/mysql"
 	nullprovider "github.com/hashicorp/terraform/builtin/providers/null"
+	occiprovider "github.com/hashicorp/terraform/builtin/providers/occi"
 	openstackprovider "github.com/hashicorp/terraform/builtin/providers/openstack"
 	packetprovider "github.com/hashicorp/terraform/builtin/providers/packet"
 	postgresqlprovider "github.com/hashicorp/terraform/builtin/providers/postgresql"
@@ -89,6 +90,7 @@ var InternalProviders = map[string]plugin.ProviderFunc{
 	"mailgun":      mailgunprovider.Provider,
 	"mysql":        mysqlprovider.Provider,
 	"null":         nullprovider.Provider,
+	"occi":         occiprovider.Provider,
 	"openstack":    openstackprovider.Provider,
 	"packet":       packetprovider.Provider,
 	"postgresql":   postgresqlprovider.Provider,
