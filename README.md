@@ -18,27 +18,27 @@ Installation
 5. Change directory to Terraform repo
 6. Change branch to current development branch (`git checkout occi`)
 7. Compile Terraform core
-	```bash
-	$ make core-dev
-	```
+```sh
+$ make core-dev
+```
 8. Compile occi provider
-	```bash
-	$ make plugin-dev PLUGIN=provider-occi
-	```
+```sh
+$ make plugin-dev PLUGIN=provider-occi
+```
 
 Usage
 --------------------
 
 1. Edit example .tf file, especially path to voms proxy file and contextualisation file
 2. Run terraform
-	```bash
-	$ terraform apply
-	```
+```sh
+$ terraform apply
+```
 3. You can check created VMs
-	```bash
-	$ terraform show
-	```
+```sh
+$ terraform show
+```
 4. After you're done, destroy resources
-	```bash
-	$ terraform destroy
-	```
+```sh
+$ terraform destroy
+```
