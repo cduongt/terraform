@@ -18,43 +18,37 @@ func resourceVirtualMachine() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceVirtualMachineCreate,
 		Read:   resourceVirtualMachineRead,
+		Update: resourceVirtualMachineUpdate,
 		Delete: resourceVirtualMachineDelete,
 
 		Schema: map[string]*schema.Schema{
 			"endpoint": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"x509": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"image_template": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"resource_template": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"context": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"storage_size": &schema.Schema{
 				Type:     schema.TypeInt,
 				Optional: true,
-				ForceNew: true,
 				Default:  0,
 			},
 			"vm_id": &schema.Schema{
@@ -124,7 +118,7 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 		hash.Write([]byte(random.String()))
 		random_hash := hex.EncodeToString(hash.Sum(nil))
 		storage_params := strings.Join([]string{"occi.storage.size=", "'num(", strconv.Itoa(storage_size), ")',occi.core.title=storage_terraform", "_", random_hash}, "")
-		cmd_args_storage := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "storage", "-t", storage_params}
+		cmd_args_storage := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "storage", "-t", storage_params, "-w", "60"}
 		if cmdOut, err = exec.Command(cmd_name, cmd_args_storage...).Output(); err != nil {
 			return fmt.Errorf("Error while creating storage: %s", err.Error())
 		}
@@ -144,6 +138,10 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 }
 
 func resourceVirtualMachineRead(d *schema.ResourceData, meta interface{}) error {
+	return nil
+}
+
+func resourceVirtualMachineUpdate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
