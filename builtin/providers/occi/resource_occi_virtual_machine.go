@@ -2,14 +2,11 @@ package occi
 
 import (
 	"bytes"
-	"crypto/md5"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
-	"math/big"
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -42,7 +39,7 @@ func resourceVirtualMachine() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"context": &schema.Schema{
+			"init_file": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 			},
@@ -79,11 +76,11 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 	resource_template := d.Get("resource_template").(string)
 	proxy_file := d.Get("x509").(string)
 	vm_name := d.Get("name").(string)
-	context_file := d.Get("context").(string)
+	init_file := d.Get("init_file").(string)
 
 	// create VM
 	cmd_name := "occi"
-	cmd_args_create := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "compute", "-M", image_template, "-M", resource_template, "-t", vm_name, "-T", strings.Join([]string{"user_data=file:///", context_file}, "")}
+	cmd_args_create := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "compute", "-M", image_template, "-M", resource_template, "-t", strings.Join([]string{"occi.core.title=", vm_name}, ""), "-T", strings.Join([]string{"user_data=file:///", init_file}, ""), "-w", "3600"}
 
 	if cmdOut, err = exec.Command(cmd_name, cmd_args_create...).Output(); err != nil {
 		return fmt.Errorf("Error while creating virtual machine: %s", err.Error())
@@ -113,12 +110,8 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 	// if storage variable is set, create storage
 	storage_size := d.Get("storage_size").(int)
 	if storage_size > 0 {
-		random, _ := rand.Int(rand.Reader, big.NewInt(32)) // random hash for name, as storage name must be unique
-		hash := md5.New()
-		hash.Write([]byte(random.String()))
-		random_hash := hex.EncodeToString(hash.Sum(nil))
-		storage_params := strings.Join([]string{"occi.storage.size=", "'num(", strconv.Itoa(storage_size), ")',occi.core.title=storage_terraform", "_", random_hash}, "")
-		cmd_args_storage := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "storage", "-t", storage_params, "-w", "60"}
+		storage_params := strings.Join([]string{"occi.storage.size=", "'num(", strconv.Itoa(storage_size), ")',occi.core.title=storage_terraform", "_", compute_id}, "")
+		cmd_args_storage := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "storage", "-t", storage_params, "-w", "300"}
 		if cmdOut, err = exec.Command(cmd_name, cmd_args_storage...).Output(); err != nil {
 			return fmt.Errorf("Error while creating storage: %s", err.Error())
 		}
@@ -164,6 +157,7 @@ func resourceVirtualMachineDelete(d *schema.ResourceData, meta interface{}) erro
 	// if storage has been provisioned, destroy it too
 	storage_id := d.Get("storage_id").(string)
 	if storage_id != "" {
+		time.Sleep(10 * time.Second)
 		cmd_args_storage := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "delete", "-r", storage_id}
 		if _, err = exec.Command(cmd_name, cmd_args_storage...).Output(); err != nil {
 			return fmt.Errorf("Error while destroying storage %s: %s", storage_id, err.Error())
