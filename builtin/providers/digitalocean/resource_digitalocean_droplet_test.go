@@ -65,6 +65,39 @@ func TestAccDigitalOceanDroplet_Update(t *testing.T) {
 						"digitalocean_droplet.foobar", "name", "baz"),
 					resource.TestCheckResourceAttr(
 						"digitalocean_droplet.foobar", "size", "1gb"),
+					resource.TestCheckResourceAttr(
+						"digitalocean_droplet.foobar", "disk", "30"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccDigitalOceanDroplet_ResizeWithOutDisk(t *testing.T) {
+	var droplet godo.Droplet
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckDigitalOceanDropletDestroy,
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testAccCheckDigitalOceanDropletConfig_basic,
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckDigitalOceanDropletExists("digitalocean_droplet.foobar", &droplet),
+					testAccCheckDigitalOceanDropletAttributes(&droplet),
+				),
+			},
+
+			resource.TestStep{
+				Config: testAccCheckDigitalOceanDropletConfig_resize_without_disk,
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckDigitalOceanDropletExists("digitalocean_droplet.foobar", &droplet),
+					testAccCheckDigitalOceanDropletResizeWithOutDisk(&droplet),
+					resource.TestCheckResourceAttr(
+						"digitalocean_droplet.foobar", "size", "1gb"),
+					resource.TestCheckResourceAttr(
+						"digitalocean_droplet.foobar", "disk", "20"),
 				),
 			},
 		},
@@ -221,6 +254,25 @@ func testAccCheckDigitalOceanDropletRenamedAndResized(droplet *godo.Droplet) res
 			return fmt.Errorf("Bad name: %s", droplet.Name)
 		}
 
+		if droplet.Disk != 30 {
+			return fmt.Errorf("Bad disk: %d", droplet.Disk)
+		}
+
+		return nil
+	}
+}
+
+func testAccCheckDigitalOceanDropletResizeWithOutDisk(droplet *godo.Droplet) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+
+		if droplet.Size.Slug != "1gb" {
+			return fmt.Errorf("Bad size_slug: %s", droplet.SizeSlug)
+		}
+
+		if droplet.Disk != 20 {
+			return fmt.Errorf("Bad disk: %d", droplet.Disk)
+		}
+
 		return nil
 	}
 }
@@ -319,24 +371,6 @@ func testAccCheckDigitalOceanDropletRecreated(t *testing.T,
 	}
 }
 
-// Not sure if this check should remain here as the underlaying
-// function is changed and is tested indirectly by almost all
-// other test already
-//
-//func Test_new_droplet_state_refresh_func(t *testing.T) {
-//	droplet := godo.Droplet{
-//		Name: "foobar",
-//	}
-//	resourceMap, _ := resource_digitalocean_droplet_update_state(
-//		&terraform.InstanceState{Attributes: map[string]string{}}, &droplet)
-//
-//	// See if we can access our attribute
-//	if _, ok := resourceMap.Attributes["name"]; !ok {
-//		t.Fatalf("bad name: %s", resourceMap.Attributes)
-//	}
-//
-//}
-
 var testAccCheckDigitalOceanDropletConfig_basic = fmt.Sprintf(`
 resource "digitalocean_ssh_key" "foobar" {
   name       = "foobar"
@@ -402,6 +436,23 @@ resource "digitalocean_droplet" "foobar" {
   image    = "centos-7-x64"
   region   = "nyc3"
   ssh_keys = ["${digitalocean_ssh_key.foobar.id}"]
+}
+`, testAccValidPublicKey)
+
+var testAccCheckDigitalOceanDropletConfig_resize_without_disk = fmt.Sprintf(`
+resource "digitalocean_ssh_key" "foobar" {
+  name       = "foobar"
+  public_key = "%s"
+}
+
+resource "digitalocean_droplet" "foobar" {
+  name     = "foo"
+  size     = "1gb"
+  image    = "centos-7-x64"
+  region   = "nyc3"
+  user_data = "foobar"
+  ssh_keys = ["${digitalocean_ssh_key.foobar.id}"]
+  resize_disk = false
 }
 `, testAccValidPublicKey)
 

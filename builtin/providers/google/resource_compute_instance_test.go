@@ -2,6 +2,8 @@ package google
 
 import (
 	"fmt"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -417,6 +419,28 @@ func TestAccComputeInstance_subnet_custom(t *testing.T) {
 	})
 }
 
+func TestAccComputeInstance_subnet_xpn(t *testing.T) {
+	var instance compute.Instance
+	var instanceName = fmt.Sprintf("instance-test-%s", acctest.RandString(10))
+	var xpn_host = os.Getenv("GOOGLE_XPN_HOST_PROJECT")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckComputeInstanceDestroy,
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testAccComputeInstance_subnet_xpn(instanceName, xpn_host),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckComputeInstanceExists(
+						"google_compute_instance.foobar", &instance),
+					testAccCheckComputeInstanceHasSubnet(&instance),
+				),
+			},
+		},
+	})
+}
+
 func TestAccComputeInstance_address_auto(t *testing.T) {
 	var instance compute.Instance
 	var instanceName = fmt.Sprintf("instance-test-%s", acctest.RandString(10))
@@ -458,6 +482,47 @@ func TestAccComputeInstance_address_custom(t *testing.T) {
 		},
 	})
 }
+
+func TestAccComputeInstance_private_image_family(t *testing.T) {
+	var instance compute.Instance
+	var instanceName = fmt.Sprintf("instance-test-%s", acctest.RandString(10))
+	var diskName = fmt.Sprintf("instance-testd-%s", acctest.RandString(10))
+	var imageName = fmt.Sprintf("instance-testi-%s", acctest.RandString(10))
+	var familyName = fmt.Sprintf("instance-testf-%s", acctest.RandString(10))
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckComputeInstanceDestroy,
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testAccComputeInstance_private_image_family(diskName, imageName, familyName, instanceName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckComputeInstanceExists(
+						"google_compute_instance.foobar", &instance),
+				),
+			},
+		},
+	})
+}
+
+func TestAccComputeInstance_invalid_disk(t *testing.T) {
+	var instanceName = fmt.Sprintf("instance-test-%s", acctest.RandString(10))
+	var diskName = fmt.Sprintf("instance-testd-%s", acctest.RandString(10))
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckComputeInstanceDestroy,
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config:      testAccComputeInstance_invalid_disk(diskName, instanceName),
+				ExpectError: regexp.MustCompile("Error: cannot define both disk and type."),
+			},
+		},
+	})
+}
+
 func testAccCheckComputeInstanceDestroy(s *terraform.State) error {
 	config := testAccProvider.Meta().(*Config)
 
@@ -705,6 +770,8 @@ func testAccComputeInstance_basic(instance string) string {
 			foo = "bar"
 			baz = "qux"
 		}
+
+		create_timeout = 5
 
 		metadata_startup_script = "echo Hello"
 	}`, instance)
@@ -1039,6 +1106,40 @@ func testAccComputeInstance_subnet_custom(instance string) string {
 	}`, acctest.RandString(10), acctest.RandString(10), instance)
 }
 
+func testAccComputeInstance_subnet_xpn(instance, xpn_host string) string {
+	return fmt.Sprintf(`
+	resource "google_compute_network" "inst-test-network" {
+		name = "inst-test-network-%s"
+		auto_create_subnetworks = false
+		project = "%s"
+	}
+
+	resource "google_compute_subnetwork" "inst-test-subnetwork" {
+		name = "inst-test-subnetwork-%s"
+		ip_cidr_range = "10.0.0.0/16"
+		region = "us-central1"
+		network = "${google_compute_network.inst-test-network.self_link}"
+		project = "%s"
+	}
+
+	resource "google_compute_instance" "foobar" {
+		name = "%s"
+		machine_type = "n1-standard-1"
+		zone = "us-central1-a"
+
+		disk {
+			image = "debian-8-jessie-v20160803"
+		}
+
+		network_interface {
+			subnetwork = "${google_compute_subnetwork.inst-test-subnetwork.name}"
+			subnetwork_project = "${google_compute_subnetwork.inst-test-subnetwork.project}"
+			access_config {	}
+		}
+
+	}`, acctest.RandString(10), xpn_host, acctest.RandString(10), xpn_host, instance)
+}
+
 func testAccComputeInstance_address_auto(instance string) string {
 	return fmt.Sprintf(`
 	resource "google_compute_network" "inst-test-network" {
@@ -1094,4 +1195,68 @@ func testAccComputeInstance_address_custom(instance, address string) string {
 		}
 
 	}`, acctest.RandString(10), acctest.RandString(10), instance, address)
+}
+
+func testAccComputeInstance_private_image_family(disk, image, family, instance string) string {
+	return fmt.Sprintf(`
+		resource "google_compute_disk" "foobar" {
+			name = "%s"
+			zone = "us-central1-a"
+			image = "debian-8-jessie-v20160803"
+		}
+
+		resource "google_compute_image" "foobar" {
+			name = "%s"
+			source_disk = "${google_compute_disk.foobar.self_link}"
+			family = "%s"
+		}
+
+		resource "google_compute_instance" "foobar" {
+			name = "%s"
+			machine_type = "n1-standard-1"
+			zone = "us-central1-a"
+
+			disk {
+				image = "${google_compute_image.foobar.family}"
+			}
+
+			network_interface {
+				network = "default"
+			}
+
+			metadata {
+				foo = "bar"
+			}
+		}`, disk, image, family, instance)
+}
+
+func testAccComputeInstance_invalid_disk(disk, instance string) string {
+	return fmt.Sprintf(`
+		resource "google_compute_instance" "foobar" {
+		  name         = "%s"
+		  machine_type = "f1-micro"
+		  zone         = "us-central1-a"
+
+		  disk {
+		    image = "ubuntu-os-cloud/ubuntu-1604-lts"
+		    type  = "pd-standard"
+		  }
+
+		  disk {
+		    disk        = "${google_compute_disk.foobar.name}"
+		    type        = "pd-standard"
+		    device_name = "xvdb"
+		  }
+
+		  network_interface {
+		    network = "default"
+		  }
+		}
+
+		resource "google_compute_disk" "foobar" {
+		  name = "%s"
+		  zone = "us-central1-a"
+		  type = "pd-standard"
+		  size = "1"
+		}`, instance, disk)
 }

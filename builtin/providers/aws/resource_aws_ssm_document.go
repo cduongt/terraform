@@ -1,12 +1,16 @@
 package aws
 
 import (
+	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -119,7 +123,9 @@ func resourceAwsSsmDocumentCreate(d *schema.ResourceData, meta interface{}) erro
 	d.SetId(*resp.DocumentDescription.Name)
 
 	if v, ok := d.GetOk("permissions"); ok && v != nil {
-		setDocumentPermissions(d, meta)
+		if err := setDocumentPermissions(d, meta); err != nil {
+			return err
+		}
 	} else {
 		log.Printf("[DEBUG] Not setting permissions for %q", d.Id())
 	}
@@ -189,7 +195,9 @@ func resourceAwsSsmDocumentRead(d *schema.ResourceData, meta interface{}) error 
 func resourceAwsSsmDocumentUpdate(d *schema.ResourceData, meta interface{}) error {
 
 	if _, ok := d.GetOk("permissions"); ok {
-		setDocumentPermissions(d, meta)
+		if err := setDocumentPermissions(d, meta); err != nil {
+			return err
+		}
 	} else {
 		log.Printf("[DEBUG] Not setting document permissions on %q", d.Id())
 	}
@@ -200,7 +208,9 @@ func resourceAwsSsmDocumentUpdate(d *schema.ResourceData, meta interface{}) erro
 func resourceAwsSsmDocumentDelete(d *schema.ResourceData, meta interface{}) error {
 	ssmconn := meta.(*AWSClient).ssmconn
 
-	deleteDocumentPermissions(d, meta)
+	if err := deleteDocumentPermissions(d, meta); err != nil {
+		return err
+	}
 
 	log.Printf("[INFO] Deleting SSM Document: %s", d.Id())
 
@@ -209,10 +219,37 @@ func resourceAwsSsmDocumentDelete(d *schema.ResourceData, meta interface{}) erro
 	}
 
 	_, err := ssmconn.DeleteDocument(params)
-
 	if err != nil {
 		return err
 	}
+
+	log.Printf("[DEBUG] Waiting for SSM Document %q to be deleted", d.Get("name").(string))
+	err = resource.Retry(10*time.Minute, func() *resource.RetryError {
+		_, err := ssmconn.DescribeDocument(&ssm.DescribeDocumentInput{
+			Name: aws.String(d.Get("name").(string)),
+		})
+
+		if err != nil {
+			awsErr, ok := err.(awserr.Error)
+			if !ok {
+				return resource.NonRetryableError(err)
+			}
+
+			if awsErr.Code() == "InvalidDocument" {
+				return nil
+			}
+
+			return resource.NonRetryableError(err)
+		}
+
+		return resource.RetryableError(
+			fmt.Errorf("%q: Timeout while waiting for the document to be deleted", d.Id()))
+	})
+	if err != nil {
+		return err
+	}
+
+	d.SetId("")
 
 	return nil
 }

@@ -111,10 +111,9 @@ func resourceComputeInstance() *schema.Resource {
 			},
 
 			"metadata": &schema.Schema{
-				Type:         schema.TypeMap,
-				Optional:     true,
-				Elem:         schema.TypeString,
-				ValidateFunc: validateInstanceMetadata,
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem:     schema.TypeString,
 			},
 
 			"metadata_startup_script": &schema.Schema{
@@ -141,6 +140,12 @@ func resourceComputeInstance() *schema.Resource {
 						},
 
 						"subnetwork": &schema.Schema{
+							Type:     schema.TypeString,
+							Optional: true,
+							ForceNew: true,
+						},
+
+						"subnetwork_project": &schema.Schema{
 							Type:     schema.TypeString,
 							Optional: true,
 							ForceNew: true,
@@ -291,6 +296,12 @@ func resourceComputeInstance() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+
+			"create_timeout": &schema.Schema{
+				Type:     schema.TypeInt,
+				Optional: true,
+				Default:  4,
+			},
 		},
 	}
 }
@@ -360,6 +371,13 @@ func resourceComputeInstanceCreate(d *schema.ResourceData, meta interface{}) err
 		disk.Mode = "READ_WRITE"
 		disk.Boot = i == 0
 		disk.AutoDelete = d.Get(prefix + ".auto_delete").(bool)
+
+		if _, ok := d.GetOk(prefix + ".disk"); ok {
+			if _, ok := d.GetOk(prefix + ".type"); ok {
+				return fmt.Errorf(
+					"Error: cannot define both disk and type.")
+			}
+		}
 
 		// Load up the disk for this disk if specified
 		if v, ok := d.GetOk(prefix + ".disk"); ok {
@@ -472,24 +490,27 @@ func resourceComputeInstanceCreate(d *schema.ResourceData, meta interface{}) err
 			// Load up the name of this network_interface
 			networkName := d.Get(prefix + ".network").(string)
 			subnetworkName := d.Get(prefix + ".subnetwork").(string)
+			subnetworkProject := d.Get(prefix + ".subnetwork_project").(string)
 			address := d.Get(prefix + ".address").(string)
 			var networkLink, subnetworkLink string
 
 			if networkName != "" && subnetworkName != "" {
 				return fmt.Errorf("Cannot specify both network and subnetwork values.")
 			} else if networkName != "" {
-				network, err := config.clientCompute.Networks.Get(
-					project, networkName).Do()
+				networkLink, err = getNetworkLink(d, config, prefix+".network")
 				if err != nil {
 					return fmt.Errorf(
 						"Error referencing network '%s': %s",
 						networkName, err)
 				}
-				networkLink = network.SelfLink
+
 			} else {
 				region := getRegionFromZone(d.Get("zone").(string))
+				if subnetworkProject == "" {
+					subnetworkProject = project
+				}
 				subnetwork, err := config.clientCompute.Subnetworks.Get(
-					project, region, subnetworkName).Do()
+					subnetworkProject, region, subnetworkName).Do()
 				if err != nil {
 					return fmt.Errorf(
 						"Error referencing subnetwork '%s' in region '%s': %s",
@@ -558,6 +579,12 @@ func resourceComputeInstanceCreate(d *schema.ResourceData, meta interface{}) err
 		scheduling.OnHostMaintenance = val.(string)
 	}
 
+	// Read create timeout
+	var createTimeout int
+	if v, ok := d.GetOk("create_timeout"); ok {
+		createTimeout = v.(int)
+	}
+
 	metadata, err := resourceInstanceMetadata(d)
 	if err != nil {
 		return fmt.Errorf("Error creating metadata: %s", err)
@@ -588,7 +615,7 @@ func resourceComputeInstanceCreate(d *schema.ResourceData, meta interface{}) err
 	d.SetId(instance.Name)
 
 	// Wait for the operation to complete
-	waitErr := computeOperationWaitZone(config, op, project, zone.Name, "instance to create")
+	waitErr := computeOperationWaitZoneTime(config, op, project, zone.Name, createTimeout, "instance to create")
 	if waitErr != nil {
 		// The resource didn't actually create
 		d.SetId("")
@@ -615,10 +642,10 @@ func resourceComputeInstanceRead(d *schema.ResourceData, meta interface{}) error
 	md := instance.Metadata
 
 	_md := MetadataFormatSchema(d.Get("metadata").(map[string]interface{}), md)
-	delete(_md, "startup-script")
 
 	if script, scriptExists := d.GetOk("metadata_startup_script"); scriptExists {
 		d.Set("metadata_startup_script", script)
+		delete(_md, "startup-script")
 	}
 
 	if err = d.Set("metadata", _md); err != nil {
@@ -708,11 +735,12 @@ func resourceComputeInstanceRead(d *schema.ResourceData, meta interface{}) error
 			}
 
 			networkInterfaces = append(networkInterfaces, map[string]interface{}{
-				"name":          iface.Name,
-				"address":       iface.NetworkIP,
-				"network":       d.Get(fmt.Sprintf("network_interface.%d.network", i)),
-				"subnetwork":    d.Get(fmt.Sprintf("network_interface.%d.subnetwork", i)),
-				"access_config": accessConfigs,
+				"name":               iface.Name,
+				"address":            iface.NetworkIP,
+				"network":            d.Get(fmt.Sprintf("network_interface.%d.network", i)),
+				"subnetwork":         d.Get(fmt.Sprintf("network_interface.%d.subnetwork", i)),
+				"subnetwork_project": d.Get(fmt.Sprintf("network_interface.%d.subnetwork_project", i)),
+				"access_config":      accessConfigs,
 			})
 		}
 	}
@@ -990,13 +1018,4 @@ func resourceInstanceTags(d *schema.ResourceData) *compute.Tags {
 	}
 
 	return tags
-}
-
-func validateInstanceMetadata(v interface{}, k string) (ws []string, es []error) {
-	mdMap := v.(map[string]interface{})
-	if _, ok := mdMap["startup-script"]; ok {
-		es = append(es, fmt.Errorf(
-			"Use metadata_startup_script instead of a startup-script key in %q.", k))
-	}
-	return
 }

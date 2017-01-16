@@ -12,8 +12,6 @@ Provides an VPC Peering Connection resource.
 
 ## Example Usage
 
-Basic usage:
-
 ```
 resource "aws_vpc_peering_connection" "foo" {
     peer_owner_id = "${var.peer_owner_id}"
@@ -48,7 +46,6 @@ resource "aws_vpc_peering_connection" "foo" {
     peer_owner_id = "${var.peer_owner_id}"
     peer_vpc_id = "${aws_vpc.bar.id}"
     vpc_id = "${aws_vpc.foo.id}"
-
     auto_accept = true
 
     tags {
@@ -75,9 +72,10 @@ more information.
 The following arguments are supported:
 
 * `peer_owner_id` - (Required) The AWS account ID of the owner of the peer VPC.
+   Defaults to the account ID the [AWS provider][1] is currently connected to.
 * `peer_vpc_id` - (Required) The ID of the VPC with which you are creating the VPC Peering Connection.
 * `vpc_id` - (Required) The ID of the requester VPC.
-* `auto_accept` - (Optional) Accept the peering (you need to be the owner of both VPCs).
+* `auto_accept` - (Optional) Accept the peering (both VPCs need to be in the same AWS account).
 * `accepter` (Optional) - An optional configuration block that allows for [VPC Peering Connection]
 (http://docs.aws.amazon.com/AmazonVPC/latest/PeeringGuide) options to be set for the VPC that accepts
 the peering connection (a maximum of one).
@@ -112,7 +110,9 @@ The following attributes are exported:
 
 ## Notes
 
-If you are not the owner of both VPCs, or do not enable the `auto_accept` attribute you will still
+AWS only supports VPC peering within the same AWS region.
+
+If both VPCs are not in the same AWS account do not enable the `auto_accept` attribute. You will still
 have to accept the VPC Peering Connection request manually using the AWS Management Console, AWS CLI,
 through SDKs, etc.
 
@@ -123,3 +123,5 @@ VPC Peering resources can be imported using the `vpc peering id`, e.g.
 ```
 $ terraform import aws_vpc_peering_connection.test_connection pcx-111aaa111
 ```
+
+[1]: /docs/providers/aws/index.html
