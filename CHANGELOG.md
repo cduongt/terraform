@@ -1,25 +1,63 @@
 ## 0.8.5 (Unreleased)
 
+BACKWARDS INCOMPATIBILITIES / NOTES:
+
+ * provider/aws: We no longer prefix an ECR repository address with `https://`
+
 FEATURES:
 
+ * **New Data Source:**  `aws_autoscaling_groups` [GH-11303]
  * **New Data Source:**  `aws_elb_hosted_zone_id ` [GH-11027]
+ * **New Data Source:**  `aws_instance` [GH-11272]
+ * **New Provider:**  `ProfitBricks` [GH-7943]
+ * **New Provider:**  `alicloud` [GH-11235]
+ * **New Resource:**  `aws_inspector_assessment_target` [GH-11217]
+ * **New Resource:**  `aws_inspector_assessment_template` [GH-11217]
+ * **New Resource:**  `aws_inspector_resource_group` [GH-11217]
+ * **New Interpolation Function:**  `pathexpand()` [GH-11277]
 
 IMPROVEMENTS:
 
  * provider/aws: Add 'route_table_id' to route_table data source ([#11157](https://github.com/hashicorp/terraform/pull/11157))
  * provider/aws: Add Support for aws_cloudwatch_metric_alarm extended statistic [GH-11193]
  * provider/aws: Make the type of a route53_record modifiable without recreating the resource [GH-11164]
+ * provider/aws: Add Placement Strategy to aws_ecs_service resource [GH-11201]
+ * provider/aws: Add support for placement_constraint to aws_ecs_service [GH-11242]
+ * provider/aws: allow ALB target group stickiness to be enabled/disabled [GH-11251]
+ * provider/aws: Add support for setting MSSQL Timezone in aws_db_instance [GH-11247]
+ * provider/aws: CloudFormation YAML template support [GH-11121]
+ * provider/aws: Remove hardcoded https from the ecr repository [GH-11307]
+ * provider/aws: implement CloudFront Lambda Function Associations [GH-11291]
  * provider/azurerm: add caching support for virtual_machine data_disks [GH-11142]
  * provider/azurerm: make lb sub resources idempotent [GH-11128]
  * provider/cloudflare: Add verification for record types and content [GH-11197]
+ * provider/datadog: Add aggregator method to timeboard graph resource [GH-11206]
+ * provider/fastly Add request_condition to backend definition [GH-11238]
  * provider/google: Add subnetwork_project field to enable cross-project networking in instance templates [GH-11110]
+ * provider/google: Add support for encrypting a disk [GH-11167]
+ * provider/google: Add support for session_affinity to google_compute_region_backend_service [GH-11228]
+ * provider/google: Allow additional zones to be configured in GKE [GH-11018]
  * provider/openstack: LoadBalancer Security Groups [GH-11074]
+ * provider/scaleway improve bootscript data source [GH-11183]
  * provider/statuscake: Add support for StatusCake confirmation servers [GH-11179]
+ * provider/statuscake: Add support for Updating StatusCake contact_ids [GH-7115]
+ * provisioner/chef: Add support for named run-lists when using policyfiles [GH-11215]
+ * core: Add basic HTTP Auth for remote state backend [GH-11301]
 
 BUG FIXES:
 
  * provider/aws: Fix panic when querying VPC's main route table via data source ([#11134](https://github.com/hashicorp/terraform/issues/11134))
  * provider/aws: Allow creating aws_codecommit repository outside of us-east-1 [GH-11177]
+ * provider/aws: Fix issue destroying or updating CloudFront due to missing Lambda Function Associations parameters [GH-11291]
+ * provider/azurerm: use configured environment for storage clients [GH-11159]
+ * provider/google: removes region param from google_compute_backend_service [GH-10903]
+ * provider/ignition: allowing empty systemd.content when a dropin is provided [GH-11216]
+ * provider/openstack: Increase deletion timeout for router interfaces [GH-11250]
+ * provider/openstack: Fix Instance Metadata Deletion [GH-11252]
+ * provider/scaleway: Rename Scaleway provider parameters to match more closely to the API [GH-10874]
+ * provider/vault: Remove user input for optional vault provider fields [GH-11082]
+ * provider/vsphere: Set deviceID to 0 if one 1 network interface in vsphere_virtual_machine [GH-8276]
+ * provisioner/remote-exec: fail on first inline script with bad exit code [GH-11155]
  
 ## 0.8.4 (January 11, 2017)
 
