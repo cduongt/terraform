@@ -48,6 +48,10 @@ func resourceVirtualMachine() *schema.Resource {
 				Optional: true,
 				Default:  0,
 			},
+			"network": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
 			"vm_id": &schema.Schema{
 				Type:     schema.TypeString,
 				Computed: true,
@@ -77,10 +81,16 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 	proxy_file := d.Get("x509").(string)
 	vm_name := d.Get("name").(string)
 	init_file := d.Get("init_file").(string)
+	network := d.Get("network").(string)
 
 	// create VM
 	cmd_name := "occi"
 	cmd_args_create := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "compute", "-M", image_template, "-M", resource_template, "-t", strings.Join([]string{"occi.core.title=", vm_name}, ""), "-T", strings.Join([]string{"user_data=file:///", init_file}, ""), "-w", "3600"}
+
+	if len(network) > 0 {
+		cmd_args_create = append(cmd_args_create, "-j")
+		cmd_args_create = append(cmd_args_create, network)
+	}
 
 	if cmdOut, err = exec.Command(cmd_name, cmd_args_create...).Output(); err != nil {
 		return fmt.Errorf("Error while creating virtual machine: %s", err.Error())

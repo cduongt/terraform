@@ -11,7 +11,7 @@ Working VOMS proxy file(/tmp/x509up_u1000)
 
 Installation
 --------------------
-1. Install Go (1.6+)
+1. Install Go (1.7+)
 2. Set [`GOPATH`](https://golang.org/doc/code.html#GOPATH)
 3. Clone this repository into `$GOPATH/src/github.com/hashicorp/terraform`
 4. Install [`rocci-cli`](https://github.com/gwdg/rOCCI-cli)
