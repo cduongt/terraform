@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -60,6 +59,10 @@ func resourceVirtualMachine() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"storage_link": &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"ip_address": &schema.Schema{
 				Type:     schema.TypeString,
 				Computed: true,
@@ -92,8 +95,8 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 		cmd_args_create = append(cmd_args_create, network)
 	}
 
-	if cmdOut, err = exec.Command(cmd_name, cmd_args_create...).Output(); err != nil {
-		return fmt.Errorf("Error while creating virtual machine: %s", err.Error())
+	if cmdOut, err = exec.Command(cmd_name, cmd_args_create...).CombinedOutput(); err != nil {
+		return fmt.Errorf("Error while creating virtual machine: %s", cmdOut)
 	}
 	compute_id_address := strings.Split(string(cmdOut), "/")
 	compute_id := strings.Trim(compute_id_address[len(compute_id_address)-1], "\n")
@@ -104,8 +107,8 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 	// get IP address
 	cmd_args_describe := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "describe", "-r", compute}
 
-	if cmdOut, err = exec.Command(cmd_name, cmd_args_describe...).Output(); err != nil {
-		return fmt.Errorf("Error while trying to get IP address: %s", err.Error())
+	if cmdOut, err = exec.Command(cmd_name, cmd_args_describe...).CombinedOutput(); err != nil {
+		return fmt.Errorf("Error while trying to get IP address: %s", cmdOut)
 	}
 
 	byte_array := bytes.Fields(cmdOut)
@@ -121,9 +124,9 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 	storage_size := d.Get("storage_size").(int)
 	if storage_size > 0 {
 		storage_params := strings.Join([]string{"occi.storage.size=", "'num(", strconv.Itoa(storage_size), ")',occi.core.title=storage_terraform", "_", compute_id}, "")
-		cmd_args_storage := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "storage", "-t", storage_params, "-w", "300"}
-		if cmdOut, err = exec.Command(cmd_name, cmd_args_storage...).Output(); err != nil {
-			return fmt.Errorf("Error while creating storage: %s", err.Error())
+		cmd_args_storage := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "storage", "-t", storage_params, "-w", "3600"}
+		if cmdOut, err = exec.Command(cmd_name, cmd_args_storage...).CombinedOutput(); err != nil {
+			return fmt.Errorf("Error while creating storage: %s", cmdOut)
 		}
 		storage_id_split := strings.Split(string(cmdOut), "/")
 		storage_id_trim := strings.Trim(storage_id_split[len(storage_id_split)-1], "\n")
@@ -132,9 +135,10 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 
 		// link storage to VM
 		cmd_args_storage_link := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "link", "-r", compute, "-j", storage_id}
-		if cmdOut, err = exec.Command(cmd_name, cmd_args_storage_link...).Output(); err != nil {
-			return fmt.Errorf("Error while linking storage %s to VM %s: %s", compute, storage_id, err.Error())
+		if cmdOut, err = exec.Command(cmd_name, cmd_args_storage_link...).CombinedOutput(); err != nil {
+			return fmt.Errorf("Error while linking storage %s to VM %s: %s", compute, storage_id, cmdOut)
 		}
+		d.Set("storage_link", strings.Trim(string(cmdOut), "\n"))
 	}
 
 	return nil
@@ -150,27 +154,34 @@ func resourceVirtualMachineUpdate(d *schema.ResourceData, meta interface{}) erro
 
 func resourceVirtualMachineDelete(d *schema.ResourceData, meta interface{}) error {
 	var (
-		_   []byte
-		err error
+		cmdOut []byte
+		err    error
 	)
 	endpoint := d.Get("endpoint").(string)
 	proxy_file := d.Get("x509").(string)
 	vm_id := d.Get("vm_id").(string)
-
-	// destroy VM
+	storage_id := d.Get("storage_id").(string)
+	storage_link := d.Get("storage_link").(string)
 	cmd_name := "occi"
+
+	// if storage is provisioned, unlink from VM
+	if storage_id != "" {
+		cmd_args_unlink := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "unlink", "-r", storage_link}
+		if cmdOut, err = exec.Command(cmd_name, cmd_args_unlink...).CombinedOutput(); err != nil {
+			return fmt.Errorf("Error while unlinking storage %s: %s", storage_link, cmdOut)
+		}
+	}
+	// destroy VM
 	cmd_args := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "delete", "-r", vm_id}
-	if _, err = exec.Command(cmd_name, cmd_args...).Output(); err != nil {
-		return fmt.Errorf("Error while destroying VM %s: %s", vm_id, err.Error())
+	if cmdOut, err = exec.Command(cmd_name, cmd_args...).CombinedOutput(); err != nil {
+		return fmt.Errorf("Error while destroying VM %s: %s", vm_id, cmdOut)
 	}
 
 	// if storage has been provisioned, destroy it too
-	storage_id := d.Get("storage_id").(string)
 	if storage_id != "" {
-		time.Sleep(10 * time.Second)
 		cmd_args_storage := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "delete", "-r", storage_id}
-		if _, err = exec.Command(cmd_name, cmd_args_storage...).Output(); err != nil {
-			return fmt.Errorf("Error while destroying storage %s: %s", storage_id, err.Error())
+		if cmdOut, err = exec.Command(cmd_name, cmd_args_storage...).CombinedOutput(); err != nil {
+			return fmt.Errorf("Error while destroying storage %s: %s", storage_id, cmdOut)
 		}
 	}
 	return nil
