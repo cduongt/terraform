@@ -165,7 +165,7 @@ func resourceVirtualMachineDelete(d *schema.ResourceData, meta interface{}) erro
 	cmd_name := "occi"
 
 	// if storage is provisioned, unlink from VM
-	if storage_id != "" {
+	if storage_link != "" {
 		cmd_args_unlink := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "unlink", "-r", storage_link}
 		if cmdOut, err = exec.Command(cmd_name, cmd_args_unlink...).CombinedOutput(); err != nil {
 			return fmt.Errorf("Error while unlinking storage %s: %s", storage_link, cmdOut)
