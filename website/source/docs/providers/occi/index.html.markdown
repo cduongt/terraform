@@ -3,38 +3,20 @@ layout: "occi"
 page_title: "Provider: OCCI"
 sidebar_current: "docs-occi-index"
 description: |-
-  The [OCCI](http://occi-wg.org/)(Open Cloud Computing Interface) provider is used to interact with the resources supported by DigitalOcean. The provider needs to be configured with the proper credentials before it can be used.
+  The OCCI (Open Cloud Computing Interface) provider is used to interact with the resources supported by OCCI. The provider needs rOCCI-cli to be functional.
 ---
 
-# DigitalOcean Provider
+# OCCI Provider
 
-The DigitalOcean (DO) provider is used to interact with the
-resources supported by DigitalOcean. The provider needs to be configured
-with the proper credentials before it can be used.
+The [OCCI](http://occi-wg.org/) (Open Cloud Computing Interface) provider is used to interact with the resources supported by OCCI. The provider needs [rOCCI-cli](https://github.com/EGI-FCTF/rOCCI-cli) to be fully functional.
 
 Use the navigation to the left to read about the available resources.
 
 ## Example Usage
 
 ```
-# Set the variable value in *.tfvars file
-# or using -var="do_token=..." CLI option
-variable "do_token" {}
-
-# Configure the DigitalOcean Provider
-provider "digitalocean" {
-    token = "${var.do_token}"
-}
-
-# Create a web server
-resource "digitalocean_droplet" "web" {
-    ...
+# Create a virtual machine
+resource "occi_virtual_machine" "vm" {
+	...
 }
 ```
-
-## Argument Reference
-
-The following arguments are supported:
-
-* `token` - (Required) This is the DO API token. This can also be specified
-  with the `DIGITALOCEAN_TOKEN` shell environment variable.

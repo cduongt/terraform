@@ -3,6 +3,7 @@ package occi
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -95,6 +96,9 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 		cmd_args_create = append(cmd_args_create, network)
 	}
 
+	log.Printf("[DEBUG] OCCI command args: %s", cmd_args_create)
+	log.Printf("[INFO] Creating VM with image %s and resource template %s", image_template, resource_template)
+
 	if cmdOut, err = exec.Command(cmd_name, cmd_args_create...).CombinedOutput(); err != nil {
 		return fmt.Errorf("Error while creating virtual machine: %s", cmdOut)
 	}
@@ -104,6 +108,7 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 	d.Set("vm_id", compute)
 	d.SetId(compute)
 
+	log.Printf("[INFO] VM was created with ID %s", compute)
 	// get IP address
 	cmd_args_describe := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "describe", "-r", compute}
 
@@ -116,13 +121,14 @@ func resourceVirtualMachineCreate(d *schema.ResourceData, meta interface{}) erro
 		if bytes.Contains(line, []byte("occi.networkinterface.address")) {
 			ip_line := string(byte_array[i+2][:])
 			d.Set("ip_address", ip_line)
+			log.Printf("[INFO] IP address of VM: %s", ip_line)
 			break
 		}
 	}
-
 	// if storage variable is set, create storage
 	storage_size := d.Get("storage_size").(int)
 	if storage_size > 0 {
+		log.Printf("[INFO] Linking storage with size %v", storage_size)
 		storage_params := strings.Join([]string{"occi.storage.size=", "'num(", strconv.Itoa(storage_size), ")',occi.core.title=storage_terraform", "_", compute_id}, "")
 		cmd_args_storage := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "create", "-r", "storage", "-t", storage_params, "-w", "3600"}
 		if cmdOut, err = exec.Command(cmd_name, cmd_args_storage...).CombinedOutput(); err != nil {
@@ -172,11 +178,13 @@ func resourceVirtualMachineDelete(d *schema.ResourceData, meta interface{}) erro
 		}
 	}
 	// destroy VM
+	log.Printf("[INFO] Destroying VM with ID %s", vm_id)
 	cmd_args := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "delete", "-r", vm_id}
 	if cmdOut, err = exec.Command(cmd_name, cmd_args...).CombinedOutput(); err != nil {
 		return fmt.Errorf("Error while destroying VM %s: %s", vm_id, cmdOut)
 	}
 
+	log.Printf("[INFO] Destroying storage with ID %s", storage_id)
 	// if storage has been provisioned, destroy it too
 	if storage_id != "" {
 		cmd_args_storage := []string{"-e", endpoint, "-n", "x509", "-x", proxy_file, "-X", "-a", "delete", "-r", storage_id}

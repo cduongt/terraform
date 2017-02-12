@@ -3,6 +3,7 @@ Terraform
 
 Fork for OCCI development.
 Current example infrastructure file is "metacloud-occi.tf" in main directory.
+Documentation can be found [here](https://github.com/cduongt/terraform/blob/occi/website/source/docs/providers/occi/r/virtual_machine.html.markdown).
 
 Prerequisities
 --------------------
