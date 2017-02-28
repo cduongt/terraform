@@ -2,7 +2,6 @@ Terraform
 =========
 
 Fork for OCCI development.
-Current example infrastructure file is "metacloud-occi.tf" in main directory.
 Documentation can be found [here](https://github.com/cduongt/terraform/blob/occi/website/source/docs/providers/occi/r/virtual_machine.html.markdown).
 
 Prerequisities
@@ -30,7 +29,7 @@ $ make plugin-dev PLUGIN=provider-occi
 Usage
 --------------------
 
-1. Edit example .tf file, especially path to voms proxy file and contextualisation file
+1. Create .tf infrastructure file
 2. Run terraform
 ```sh
 $ terraform apply
